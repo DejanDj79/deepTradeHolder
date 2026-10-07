@@ -86,8 +86,8 @@ public class TradeHoldTimer : Indicator
 
         VAn.AddAnnotation(IndVars.FrontAnnList, _statusLabel);
 
-        StatusMessage =
-            "Trade Hold Timer loaded. TradingApi position/fill integration is the next implementation step.";
+        // Phase-1 diagnostics are complete; do not show a warning/status line on the chart.
+        StatusMessage = null;
     }
 
     public override void OnEnd(bool isRt)
