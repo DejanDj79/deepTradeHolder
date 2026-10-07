@@ -48,16 +48,16 @@ public class TradeHoldTimer : Indicator
     public int VisibleRows { get; set; } = 5;
 
     [Category("Layout")]
-    [DisplayName("X offset (px)")]
-    [Description("Panel distance in pixels from the left edge of the chart.")]
-    [VolCustom(CategoryIndex = 1, PropertyIndex = 1, MinValue = 0, MaxValue = 3000, IncrementValue = 1)]
-    public int XOffsetPx { get; set; } = 12;
+    [DisplayName("Horizontal position")]
+    [Description("Relative panel position across the chart. Kept inside a safe visible range.")]
+    [VolCustom(CategoryIndex = 1, PropertyIndex = 1, MinValue = 0, MaxValue = 1, IncrementValue = 0.05, DecimalPosToShow = 2)]
+    public double HorizontalPosition { get; set; } = 0.02;
 
     [Category("Layout")]
-    [DisplayName("Y offset (px)")]
-    [Description("Panel distance in pixels from the top edge of the chart.")]
-    [VolCustom(CategoryIndex = 1, PropertyIndex = 2, MinValue = 0, MaxValue = 2000, IncrementValue = 1)]
-    public int YOffsetPx { get; set; } = 12;
+    [DisplayName("Vertical position")]
+    [Description("Relative panel position down the chart. Kept inside a safe visible range.")]
+    [VolCustom(CategoryIndex = 1, PropertyIndex = 2, MinValue = 0, MaxValue = 1, IncrementValue = 0.05, DecimalPosToShow = 2)]
+    public double VerticalPosition { get; set; } = 0.05;
 
     [Category("Layout")]
     [DisplayName("Font size")]
@@ -81,10 +81,9 @@ public class TradeHoldTimer : Indicator
     public override void OnLoad()
     {
         _statusLabel = VAn.CreateAnnotation(AnnotationType.Text);
-        _statusLabel.CoordinateXType = CoordinateTypeEnum.Pixel;
-        _statusLabel.CoordinateYType = CoordinateTypeEnum.Pixel;
+        _statusLabel.CoordinateXType = CoordinateTypeEnum.Relative;
+        _statusLabel.CoordinateYType = CoordinateTypeEnum.Relative;
         _statusLabel.TextAlign = TextAlignment.VLeftHTop;
-        _statusLabel.LabelAlign = LabelAlignEnum.Left;
 
         VAn.AddAnnotation(IndVars.FrontAnnList, _statusLabel);
 
@@ -99,8 +98,10 @@ public class TradeHoldTimer : Indicator
 
         // Apply these on every calculation so layout settings immediately
         // affect the existing annotation.
-        _statusLabel.X = XOffsetPx;
-        _statusLabel.Y = YOffsetPx;
+        // Text annotations can be clipped exactly on the chart edges.
+        // Clamp to a known-safe visible range for this SDK/load test.
+        _statusLabel.X = Math.Clamp(HorizontalPosition, 0.02, 0.80);
+        _statusLabel.Y = Math.Clamp(VerticalPosition, 0.05, 0.90);
         _statusLabel.FontSize = FontSize;
         _statusLabel.FontBold = true;
         _statusLabel.ForeColor = ColorRef.FromRgb(230, 230, 230);
