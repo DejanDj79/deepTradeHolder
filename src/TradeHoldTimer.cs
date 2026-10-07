@@ -71,11 +71,18 @@ public class TradeHoldTimer : Indicator
     private IAnnotation _panel;
     private IAnnotation _title;
     private IAnnotation _columns;
-    private IAnnotation _sampleRow;
+    private readonly List<IAnnotation> _rows = new List<IAnnotation>();
     private IAnnotation _footer;
 
+    private sealed class TradeLot
+    {
+        public int Direction;
+        public decimal Quantity;
+        public DateTime OpenedAtUtc;
+    }
+
+    private readonly List<TradeLot> _lots = new List<TradeLot>();
     private decimal _lastNetQuantity;
-    private DateTime? _tradeOpenedAtUtc;
     private bool _positionStateInitialized;
 
     public override void OnSet(bool setDefault, bool themeOverride)
@@ -96,11 +103,15 @@ public class TradeHoldTimer : Indicator
 
         _title = CreateText(true, FontSize + 1);
         _columns = CreateText(true, FontSize);
-        _sampleRow = CreateText(false, FontSize);
+
+        _rows.Clear();
+        for (int i = 0; i < VisibleRows; i++)
+            _rows.Add(CreateText(false, FontSize));
+
         _footer = CreateText(false, Math.Max(8, FontSize - 1));
 
+        _lots.Clear();
         _lastNetQuantity = 0;
-        _tradeOpenedAtUtc = null;
         _positionStateInitialized = false;
 
         StatusMessage = null;
@@ -136,63 +147,57 @@ public class TradeHoldTimer : Indicator
         double textX = left + width * 0.045;
 
         _title.X = textX;
-        _title.Y = top + height * 0.10;
+        _title.Y = top + 0.018;
         _title.FontSize = FontSize + 1;
         _title.Text = "TRADE HOLD TIMER";
 
         _columns.X = textX;
-        _columns.Y = top + height * 0.34;
+        _columns.Y = top + 0.058;
         _columns.FontSize = FontSize;
         _columns.Text = "SIDE     QTY     ELAPSED     STATUS";
-
-        _sampleRow.X = textX;
-        _sampleRow.Y = top + height * 0.55;
-        _sampleRow.FontSize = FontSize;
 
         decimal net = TradingApi.PositionNetQuantity;
 
         if (isRt)
-            UpdateTradeState(net);
+            UpdateTradeLots(net);
 
-        string side = net > 0 ? "LONG" : net < 0 ? "SHORT" : "FLAT";
-        decimal qty = Math.Abs(net);
+        double rowStartY = top + 0.095;
+        double rowSpacing = 0.034;
 
-        if (net == 0 || _tradeOpenedAtUtc == null)
+        int firstLot = Math.Max(0, _lots.Count - _rows.Count);
+        for (int i = 0; i < _rows.Count; i++)
         {
-            _sampleRow.Text = $"{side,-6} {qty,-7} 00:00.0     WAITING";
-            _sampleRow.ForeColor = ColorRef.FromRgb(230, 230, 235);
-        }
-        else
-        {
-            TimeSpan elapsed = DateTime.UtcNow - _tradeOpenedAtUtc.Value;
-            if (elapsed < TimeSpan.Zero)
-                elapsed = TimeSpan.Zero;
+            IAnnotation row = _rows[i];
+            row.X = textX;
+            row.Y = rowStartY + i * rowSpacing;
+            row.FontSize = FontSize;
 
-            double seconds = elapsed.TotalSeconds;
-            string elapsedText = FormatElapsed(elapsed);
-            string status;
-
-            if (seconds < MinimumHoldSeconds)
+            int lotIndex = firstLot + i;
+            if (lotIndex < _lots.Count)
             {
-                status = "HOLD";
-                _sampleRow.ForeColor = IMethodAPI.GetColorRefForTheme(ColorReferenceEnum.Down, ColorTypeEnum.Text);
+                TradeLot lot = _lots[lotIndex];
+                TimeSpan elapsed = DateTime.UtcNow - lot.OpenedAtUtc;
+                if (elapsed < TimeSpan.Zero)
+                    elapsed = TimeSpan.Zero;
+
+                string side = lot.Direction > 0 ? "LONG" : "SHORT";
+                string status = GetStatus(elapsed, out ColorRef color);
+                row.ForeColor = color;
+                row.Text = $"{side,-6} {lot.Quantity,-7} {FormatElapsed(elapsed),-10} {status}";
             }
-            else if (seconds < MinimumHoldSeconds + SafetyBufferSeconds)
+            else if (_lots.Count == 0 && i == 0)
             {
-                status = "MIN REACHED";
-                _sampleRow.ForeColor = ColorRef.Yellow;
+                row.ForeColor = ColorRef.FromRgb(230, 230, 235);
+                row.Text = "FLAT   --      00:00.0     WAITING";
             }
             else
             {
-                status = "SAFE";
-                _sampleRow.ForeColor = IMethodAPI.GetColorRefForTheme(ColorReferenceEnum.Up, ColorTypeEnum.Text);
+                row.Text = "";
             }
-
-            _sampleRow.Text = $"{side,-6} {qty,-7} {elapsedText,-10} {status}";
         }
 
         _footer.X = textX;
-        _footer.Y = top + height * 0.78;
+        _footer.Y = rowStartY + _rows.Count * rowSpacing + 0.008;
         _footer.FontSize = Math.Max(8, FontSize - 1);
         _footer.Text = $"Min {MinimumHoldSeconds}s · Safe {MinimumHoldSeconds + SafetyBufferSeconds}s";
 
@@ -201,42 +206,115 @@ public class TradeHoldTimer : Indicator
         _footer.ForeColor = ColorRef.FromRgb(150, 153, 163);
     }
 
-    private void UpdateTradeState(decimal net)
+    private void UpdateTradeLots(decimal net)
     {
         if (!_positionStateInitialized)
         {
             _positionStateInitialized = true;
             _lastNetQuantity = net;
 
-            // If the indicator is attached while a position is already open,
-            // this is only the first observed moment, not the historical fill time.
+            // If attached while already in a position, create one observed lot.
             if (net != 0)
-                _tradeOpenedAtUtc = DateTime.UtcNow;
+                AddLot(Math.Sign(net), Math.Abs(net));
 
             return;
         }
 
-        bool wasFlat = _lastNetQuantity == 0;
+        if (net == _lastNetQuantity)
+            return;
+
+        decimal previous = _lastNetQuantity;
+        bool wasFlat = previous == 0;
         bool isFlat = net == 0;
-        bool reversed = !wasFlat && !isFlat && Math.Sign(_lastNetQuantity) != Math.Sign(net);
 
         if (wasFlat && !isFlat)
         {
-            // First observed filled position: start the timer.
-            _tradeOpenedAtUtc = DateTime.UtcNow;
-        }
-        else if (reversed)
-        {
-            // Reversal closes the previous trade and starts a new one.
-            _tradeOpenedAtUtc = DateTime.UtcNow;
+            _lots.Clear();
+            AddLot(Math.Sign(net), Math.Abs(net));
         }
         else if (!wasFlat && isFlat)
         {
-            // Full exit: stop/reset. Scale-ins and partial exits intentionally do nothing.
-            _tradeOpenedAtUtc = null;
+            _lots.Clear();
+        }
+        else if (Math.Sign(previous) != Math.Sign(net))
+        {
+            // Net reversal: the old side is fully closed and the opposite side starts now.
+            _lots.Clear();
+            AddLot(Math.Sign(net), Math.Abs(net));
+        }
+        else
+        {
+            decimal previousAbs = Math.Abs(previous);
+            decimal currentAbs = Math.Abs(net);
+
+            if (currentAbs > previousAbs)
+            {
+                // Scale-in/new entry: its added quantity gets an independent timer.
+                AddLot(Math.Sign(net), currentAbs - previousAbs);
+            }
+            else if (currentAbs < previousAbs)
+            {
+                // The API does not identify which open lot was closed.
+                // Match reductions FIFO: oldest open quantity is closed first.
+                CloseQuantityFifo(previousAbs - currentAbs);
+            }
         }
 
         _lastNetQuantity = net;
+    }
+
+    private void AddLot(int direction, decimal quantity)
+    {
+        if (quantity <= 0)
+            return;
+
+        _lots.Add(new TradeLot
+        {
+            Direction = direction,
+            Quantity = quantity,
+            OpenedAtUtc = DateTime.UtcNow
+        });
+    }
+
+    private void CloseQuantityFifo(decimal quantity)
+    {
+        decimal remaining = quantity;
+
+        while (remaining > 0 && _lots.Count > 0)
+        {
+            TradeLot lot = _lots[0];
+
+            if (lot.Quantity <= remaining)
+            {
+                remaining -= lot.Quantity;
+                _lots.RemoveAt(0);
+            }
+            else
+            {
+                lot.Quantity -= remaining;
+                remaining = 0;
+            }
+        }
+    }
+
+    private string GetStatus(TimeSpan elapsed, out ColorRef color)
+    {
+        double seconds = elapsed.TotalSeconds;
+
+        if (seconds < MinimumHoldSeconds)
+        {
+            color = IMethodAPI.GetColorRefForTheme(ColorReferenceEnum.Down, ColorTypeEnum.Text);
+            return "HOLD";
+        }
+
+        if (seconds < MinimumHoldSeconds + SafetyBufferSeconds)
+        {
+            color = ColorRef.Yellow;
+            return "MIN REACHED";
+        }
+
+        color = IMethodAPI.GetColorRefForTheme(ColorReferenceEnum.Up, ColorTypeEnum.Text);
+        return "SAFE";
     }
 
     private static string FormatElapsed(TimeSpan elapsed)
@@ -251,7 +329,7 @@ public class TradeHoldTimer : Indicator
         const double rightShiftX = 0.187;
         const double marginY = 0.025;
         const double panelWidth = 0.30;
-        const double panelHeight = 0.18;
+        double panelHeight = 0.14 + VisibleRows * 0.034;
 
         switch (PanelPosition)
         {
