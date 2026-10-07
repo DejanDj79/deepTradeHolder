@@ -57,7 +57,7 @@ public class TradeHoldTimer : Indicator
     [DisplayName("Vertical position")]
     [Description("Initial relative Y position of the panel on the chart.")]
     [VolCustom(CategoryIndex = 1, PropertyIndex = 2, MinValue = 0, MaxValue = 1, IncrementValue = 0.05, DecimalPosToShow = 2)]
-    public double VerticalPosition { get; set; } = 0.95;
+    public double VerticalPosition { get; set; } = 0.02;
 
     [Category("Layout")]
     [DisplayName("Font size")]
@@ -83,7 +83,6 @@ public class TradeHoldTimer : Indicator
         _statusLabel = VAn.CreateAnnotation(AnnotationType.Text);
         _statusLabel.CoordinateXType = CoordinateTypeEnum.Relative;
         _statusLabel.CoordinateYType = CoordinateTypeEnum.Relative;
-        _statusLabel.TextAlign = TextAlignment.VLeftHTop;
 
         VAn.AddAnnotation(IndVars.FrontAnnList, _statusLabel);
 
@@ -100,6 +99,7 @@ public class TradeHoldTimer : Indicator
         // affect the existing annotation.
         _statusLabel.X = HorizontalPosition;
         _statusLabel.Y = VerticalPosition;
+        _statusLabel.TextAlign = GetTextAlignment(HorizontalPosition, VerticalPosition);
         _statusLabel.FontSize = FontSize;
         _statusLabel.FontBold = true;
         _statusLabel.ForeColor = ColorRef.FromRgb(230, 230, 230);
@@ -107,5 +107,25 @@ public class TradeHoldTimer : Indicator
             $"TRADE HOLD TIMER\n" +
             $"SDK LINK OK · PHASE 1\n" +
             $"Min {MinimumHoldSeconds}s · Safe {MinimumHoldSeconds + SafetyBufferSeconds}s · Rows {VisibleRows}";
+    }
+
+    private static TextAlignment GetTextAlignment(double x, double y)
+    {
+        bool left = x <= 0.33;
+        bool right = x >= 0.67;
+        bool top = y <= 0.33;
+        bool bottom = y >= 0.67;
+
+        if (left && top) return TextAlignment.VLeftHTop;
+        if (left && bottom) return TextAlignment.VLeftHBottom;
+        if (right && top) return TextAlignment.VRightHTop;
+        if (right && bottom) return TextAlignment.VRightHBottom;
+
+        if (left) return TextAlignment.VLeftHCenter;
+        if (right) return TextAlignment.VRightHCenter;
+        if (top) return TextAlignment.VCenterHTop;
+        if (bottom) return TextAlignment.VCenterHBottom;
+
+        return TextAlignment.VCenterHCenter;
     }
 }
