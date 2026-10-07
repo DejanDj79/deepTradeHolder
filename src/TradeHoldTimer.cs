@@ -20,8 +20,9 @@ public enum TradeHoldPanelPosition
 /// <summary>
 /// Trade Hold Timer for DeepCharts.
 ///
-/// Uses only documented annotation primitives for the fixed panel shell.
-/// TradingApi position/fill integration is added separately.
+/// The fixed panel intentionally uses one Text annotation because that is the
+/// rendering primitive verified to work reliably with relative coordinates
+/// in the current DeepCharts desktop build.
 /// </summary>
 public class TradeHoldTimer : Indicator
 {
@@ -68,14 +69,7 @@ public class TradeHoldTimer : Indicator
 
     #endregion
 
-    private IAnnotation _panel;
-    private IAnnotation _title;
-    private IAnnotation _columns;
-    private IAnnotation _sampleRow;
-    private IAnnotation _footer;
-    private IAnnotation _line1;
-    private IAnnotation _line2;
-    private IAnnotation _line3;
+    private IAnnotation _panelText;
 
     public override void OnSet(bool setDefault, bool themeOverride)
     {
@@ -85,117 +79,49 @@ public class TradeHoldTimer : Indicator
 
     public override void OnLoad()
     {
-        _panel = VAn.CreateAnnotation(AnnotationType.Rectangle);
-        _panel.CoordinateXType = CoordinateTypeEnum.Relative;
-        _panel.CoordinateYType = CoordinateTypeEnum.Relative;
-        _panel.LineWidth = 2;
-        _panel.LineColor = ColorRef.FromRgb(185, 188, 198);
-        _panel.BackColor = ColorRef.FromRgb(24, 26, 31).WithOpacity(220);
-        VAn.AddAnnotation(IndVars.FrontAnnList, _panel);
+        _panelText = VAn.CreateAnnotation(AnnotationType.Text);
+        _panelText.CoordinateXType = CoordinateTypeEnum.Relative;
+        _panelText.CoordinateYType = CoordinateTypeEnum.Relative;
+        _panelText.TextAlign = TextAlignment.VLeftHTop;
+        _panelText.FontBold = false;
+        _panelText.FontSize = FontSize;
+        _panelText.ForeColor = ColorRef.FromRgb(232, 233, 238);
+        _panelText.BackColor = ColorRef.FromRgb(24, 26, 31).WithOpacity(225);
+        _panelText.LineColor = ColorRef.FromRgb(185, 188, 198);
+        _panelText.LineWidth = 1;
 
-        _line1 = CreateSeparator();
-        _line2 = CreateSeparator();
-        _line3 = CreateSeparator();
-
-        _title = CreateText(true, FontSize + 1);
-        _columns = CreateText(true, FontSize);
-        _sampleRow = CreateText(false, FontSize);
-        _footer = CreateText(false, Math.Max(8, FontSize - 1));
-
+        VAn.AddAnnotation(IndVars.FrontAnnList, _panelText);
         StatusMessage = null;
-    }
-
-    private IAnnotation CreateText(bool bold, int fontSize)
-    {
-        var label = VAn.CreateAnnotation(AnnotationType.Text);
-        label.CoordinateXType = CoordinateTypeEnum.Relative;
-        label.CoordinateYType = CoordinateTypeEnum.Relative;
-        label.TextAlign = TextAlignment.VLeftHTop;
-        label.ForeColor = ColorRef.FromRgb(230, 230, 235);
-        label.FontBold = bold;
-        label.FontSize = fontSize;
-        VAn.AddAnnotation(IndVars.FrontAnnList, label);
-        return label;
-    }
-
-    private IAnnotation CreateSeparator()
-    {
-        var line = VAn.CreateAnnotation(AnnotationType.Line);
-        line.CoordinateXType = CoordinateTypeEnum.Relative;
-        line.CoordinateYType = CoordinateTypeEnum.Relative;
-        line.LineWidth = 1;
-        line.LineColor = ColorRef.FromRgb(105, 110, 122);
-        VAn.AddAnnotation(IndVars.FrontAnnList, line);
-        return line;
     }
 
     public override void OnEnd(bool isRt)
     {
-        if (_panel == null)
+        if (_panelText == null)
             return;
 
-        GetPanelBounds(out double left, out double top, out double right, out double bottom);
+        GetPanelAnchor(out double x, out double y);
 
-        _panel.X = left;
-        _panel.X2 = right;
-        _panel.Y = top;
-        _panel.Y2 = bottom;
-
-        double width = right - left;
-        double height = bottom - top;
-        double textX = left + width * 0.035;
-
-        PlaceLine(_line1, left, right, top + height * 0.25);
-        PlaceLine(_line2, left, right, top + height * 0.47);
-        PlaceLine(_line3, left, right, top + height * 0.70);
-
-        _title.X = textX;
-        _title.Y = top + height * 0.07;
-        _title.FontSize = FontSize + 1;
-        _title.Text = "TRADE HOLD TIMER";
-
-        _columns.X = textX;
-        _columns.Y = top + height * 0.31;
-        _columns.FontSize = FontSize;
-        _columns.Text = "SIDE      QTY      ELAPSED      STATUS";
-
-        _sampleRow.X = textX;
-        _sampleRow.Y = top + height * 0.53;
-        _sampleRow.FontSize = FontSize;
-        _sampleRow.Text = "--        --       00:00.0      WAITING";
-
-        _footer.X = textX;
-        _footer.Y = top + height * 0.76;
-        _footer.FontSize = Math.Max(8, FontSize - 1);
-        _footer.Text = $"Min {MinimumHoldSeconds}s · Safe {MinimumHoldSeconds + SafetyBufferSeconds}s";
-
-        _title.ForeColor = ColorRef.FromRgb(245, 245, 248);
-        _columns.ForeColor = ColorRef.FromRgb(175, 178, 188);
-        _sampleRow.ForeColor = ColorRef.FromRgb(230, 230, 235);
-        _footer.ForeColor = ColorRef.FromRgb(150, 153, 163);
+        _panelText.X = x;
+        _panelText.Y = y;
+        _panelText.FontSize = FontSize;
+        _panelText.Text =
+            " TRADE HOLD TIMER\n" +
+            " ─────────────────────────────\n" +
+            " SIDE    QTY    ELAPSED    STATUS\n" +
+            " ─────────────────────────────\n" +
+            " --      --     00:00.0    WAITING\n" +
+            " ─────────────────────────────\n" +
+            $" Min {MinimumHoldSeconds}s · Safe {MinimumHoldSeconds + SafetyBufferSeconds}s ";
     }
 
-    private static void PlaceLine(IAnnotation line, double left, double right, double y)
+    private void GetPanelAnchor(out double x, out double y)
     {
-        line.X = left;
-        line.X2 = right;
-        line.Y = y;
-        line.Y2 = y;
-    }
-
-    private void GetPanelBounds(out double left, out double top, out double right, out double bottom)
-    {
-        const double marginX = 0.002;
-        const double marginY = 0.010;
-        const double panelWidth = 0.30;
-        const double panelHeight = 0.18;
-
         bool rightSide = PanelPosition is TradeHoldPanelPosition.TopRight or TradeHoldPanelPosition.BottomRight;
         bool bottomSide = PanelPosition is TradeHoldPanelPosition.BottomLeft or TradeHoldPanelPosition.BottomRight;
 
-        left = rightSide ? 1.0 - marginX - panelWidth : marginX;
-        top = bottomSide ? 1.0 - marginY - panelHeight : marginY;
-        right = left + panelWidth;
-        bottom = top + panelHeight;
+        // These anchors are based on the positions already verified visually
+        // on the user's DeepCharts desktop build.
+        x = rightSide ? 0.90 : -0.007;
+        y = bottomSide ? 0.80 : 0.01;
     }
 }
