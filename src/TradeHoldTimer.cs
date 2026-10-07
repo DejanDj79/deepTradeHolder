@@ -72,6 +72,7 @@ public class TradeHoldTimer : Indicator
     private IAnnotation _title;
     private IAnnotation _columns;
     private readonly List<IAnnotation> _rows = new List<IAnnotation>();
+    private IAnnotation _overallStatus;
     private IAnnotation _footer;
 
     private sealed class TradeLot
@@ -108,6 +109,7 @@ public class TradeHoldTimer : Indicator
         for (int i = 0; i < VisibleRows; i++)
             _rows.Add(CreateText(false, FontSize));
 
+        _overallStatus = CreateText(true, FontSize);
         _footer = CreateText(false, Math.Max(8, FontSize - 1));
 
         _lots.Clear();
@@ -196,8 +198,43 @@ public class TradeHoldTimer : Indicator
             }
         }
 
+        _overallStatus.X = textX;
+        _overallStatus.Y = rowStartY + _rows.Count * rowSpacing + 0.006;
+        _overallStatus.FontSize = FontSize;
+
+        if (_lots.Count == 0)
+        {
+            _overallStatus.Text = "POSITION: WAITING";
+            _overallStatus.ForeColor = ColorRef.FromRgb(175, 178, 188);
+        }
+        else
+        {
+            DateTime newestOpen = _lots.Max(lot => lot.OpenedAtUtc);
+            TimeSpan youngestElapsed = DateTime.UtcNow - newestOpen;
+            if (youngestElapsed < TimeSpan.Zero)
+                youngestElapsed = TimeSpan.Zero;
+
+            double youngestSeconds = youngestElapsed.TotalSeconds;
+
+            if (youngestSeconds < MinimumHoldSeconds)
+            {
+                _overallStatus.Text = "POSITION: NOT ALL SAFE";
+                _overallStatus.ForeColor = IMethodAPI.GetColorRefForTheme(ColorReferenceEnum.Down, ColorTypeEnum.Text);
+            }
+            else if (youngestSeconds < MinimumHoldSeconds + SafetyBufferSeconds)
+            {
+                _overallStatus.Text = "POSITION: MIN REACHED";
+                _overallStatus.ForeColor = ColorRef.Yellow;
+            }
+            else
+            {
+                _overallStatus.Text = "POSITION: ALL SAFE";
+                _overallStatus.ForeColor = IMethodAPI.GetColorRefForTheme(ColorReferenceEnum.Up, ColorTypeEnum.Text);
+            }
+        }
+
         _footer.X = textX;
-        _footer.Y = rowStartY + _rows.Count * rowSpacing + 0.008;
+        _footer.Y = _overallStatus.Y + 0.032;
         _footer.FontSize = Math.Max(8, FontSize - 1);
         _footer.Text = $"Min {MinimumHoldSeconds}s · Safe {MinimumHoldSeconds + SafetyBufferSeconds}s";
 
@@ -329,7 +366,7 @@ public class TradeHoldTimer : Indicator
         const double rightShiftX = 0.187;
         const double marginY = 0.025;
         const double panelWidth = 0.30;
-        double panelHeight = 0.14 + VisibleRows * 0.034;
+        double panelHeight = 0.19 + VisibleRows * 0.034;
 
         switch (PanelPosition)
         {
