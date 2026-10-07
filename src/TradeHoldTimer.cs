@@ -20,8 +20,10 @@ public enum TradeHoldPanelPosition
 /// <summary>
 /// Trade Hold Timer for DeepCharts.
 ///
-/// Phase 1 verifies SDK loading and renders the timer shell as a fixed chart panel.
-/// TradingApi position/fill integration comes next.
+/// Tracks observed futures position entries through DeepCharts TradingApi.
+/// Each increase in absolute net quantity creates an independent entry timer.
+/// Because ITradingAPI does not expose individual open-lot identity, partial
+/// reductions are matched FIFO for display purposes.
 /// </summary>
 public class TradeHoldTimer : Indicator
 {
@@ -62,7 +64,7 @@ public class TradeHoldTimer : Indicator
 
     [Category("Layout")]
     [DisplayName("Visible rows")]
-    [Description("Target number of visible trade rows before internal scrolling is used.")]
+    [Description("Maximum number of active entry timers shown. When there are more, the newest rows are displayed.")]
     [VolCustom(CategoryIndex = 2, PropertyIndex = 0, MinValue = 1, MaxValue = 15, IncrementValue = 1)]
     public int VisibleRows { get; set; } = 5;
 
@@ -158,7 +160,6 @@ public class TradeHoldTimer : Indicator
         _panel.Y2 = bottom;
 
         double width = right - left;
-        double height = bottom - top;
         double textX = left + width * 0.045;
 
         _title.X = textX;
@@ -317,13 +318,14 @@ public class TradeHoldTimer : Indicator
 
             if (currentAbs > previousAbs)
             {
-                // Scale-in/new entry: its added quantity gets an independent timer.
+                // A position increase is treated as a new entry and gets its own timer.
                 AddLot(Math.Sign(net), currentAbs - previousAbs);
             }
             else if (currentAbs < previousAbs)
             {
-                // The API does not identify which open lot was closed.
-                // Match reductions FIFO: oldest open quantity is closed first.
+                // ITradingAPI exposes only aggregate position quantity, not which
+                // specific open entry was reduced. FIFO is used only to keep the
+                // displayed active-entry list conservative and deterministic.
                 CloseQuantityFifo(previousAbs - currentAbs);
             }
         }
