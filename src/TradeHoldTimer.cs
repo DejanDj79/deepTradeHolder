@@ -9,154 +9,162 @@ using static VolSysAPI.Structure;
 
 namespace DeepTradeHolder
 {
+    public enum FixedPanelPosition
+    {
+        TopLeft,
+        TopRight,
+        BottomLeft,
+        BottomRight
+    }
+
     /// <summary>
-    /// Temporary exact-style test based on DeepCharts' official SessionRangeBox example.
+    /// Fixed panel test built directly from the working official SessionRangeBox pattern.
+    /// The only material change is Relative coordinates instead of bar/price coordinates.
     /// </summary>
-    public class SessionRangeBox : Indicator
+    public class FixedPanelBox : Indicator
     {
         public static IndicatorDescriptionBase Register()
         {
             return new IndicatorDescriptionBase
             {
-                Name = "Example - Session Range Box",
-                Description = "Box around the high and the low of every session. Example of annotations and groups.",
-                Tags = new List<string> { "Example", "Session" }
+                Name = "Fixed Panel Box Test",
+                Description = "Fixed Rectangle + Text using the same annotation-group pattern as SessionRangeBox.",
+                Tags = new List<string> { "Example", "Panel", "Rectangle" }
             };
         }
 
         #region Parameters
 
-        [Category("General")]
-        [DisplayName("Sessions shown")]
-        [VolCustom(CategoryIndex = 0, PropertyIndex = 0, MinValue = 1, MaxValue = 100, IncrementValue = 1)]
-        public int MaxSessions { get; set; } = 10;
-
-        [Category("General")]
-        [DisplayName("Show size")]
-        [VolCustom(CategoryIndex = 0, PropertyIndex = 1)]
-        public bool ShowSize { get; set; } = true;
+        [Category("Layout")]
+        [DisplayName("Panel position")]
+        [VolCustom(CategoryIndex = 0, PropertyIndex = 0)]
+        public FixedPanelPosition PanelPosition { get; set; } = FixedPanelPosition.TopRight;
 
         [Category("Colors")]
+        [DisplayName("Border color")]
         [VolCustom(CategoryIndex = 1, PropertyIndex = 0)]
-        public ColorRef BoxColor { get; set; } =
+        public ColorRef BorderColor { get; set; } =
             IMethodAPI.GetColorRefForTheme(ColorReferenceEnum.Neutral, ColorTypeEnum.Stroke);
+
+        [Category("Colors")]
+        [DisplayName("Background opacity")]
+        [VolCustom(CategoryIndex = 1, PropertyIndex = 1, MinValue = 0, MaxValue = 255, IncrementValue = 5)]
+        public int BackgroundOpacity { get; set; } = 45;
 
         #endregion
 
-        class SessionBox
-        {
-            public IAnnotation Box, Label;
-            public int FirstIndex;
-            public double High, Low;
-        }
-
-        readonly List<SessionBox> sessions = new List<SessionBox>();
-
-        IAnnGroup boxes, labels;
+        private IAnnGroup boxes, labels;
+        private IAnnotation box, header, body;
 
         public override void OnSet(bool setDefault, bool themeOverride)
         {
-            OnOpenCall = CallHandler.HistRT;
             OnEndCall = CallHandler.HistRT;
         }
 
         public override void OnLoad()
         {
-            sessions.Clear();
-
+            // EXACT SAME GROUP PATTERN AS THE WORKING SESSION RANGE BOX.
             boxes = VAn.CreateAnnGroup();
             labels = VAn.CreateAnnGroup();
 
             IndVars.Ann_List.AddGroup(boxes);
             IndVars.Ann_List.AddGroup(labels);
-        }
 
-        public override void OnOpen(bool isRt)
-        {
-            int index = VAn.BarIndex;
-            var bar = VAn.BarVars[index];
+            box = VAn.CreateAnnotation(AnnotationType.Rectangle);
+            box.CoordinateXType = CoordinateTypeEnum.Relative;
+            box.CoordinateYType = CoordinateTypeEnum.Relative;
+            box.LineWidth = 2;
+            box.LineColor = BorderColor;
+            box.BackColor = BorderColor.WithOpacity(BackgroundOpacity);
+            VAn.AddAnnotation(boxes, box);
 
-            if (index > 0 && sessions.Count > 0)
-                Extend(index - 1);
+            header = VAn.CreateAnnotation(AnnotationType.Text);
+            header.CoordinateXType = CoordinateTypeEnum.Relative;
+            header.CoordinateYType = CoordinateTypeEnum.Relative;
+            header.ForeColor = BorderColor;
+            header.FontSize = 12;
+            header.FontBold = true;
+            VAn.AddAnnotation(labels, header);
 
-            if (bar.IsNewDay || sessions.Count == 0)
-                StartSession(index);
+            body = VAn.CreateAnnotation(AnnotationType.Text);
+            body.CoordinateXType = CoordinateTypeEnum.Relative;
+            body.CoordinateYType = CoordinateTypeEnum.Relative;
+            body.ForeColor = ColorRef.FromRgb(230, 230, 235);
+            body.FontSize = 11;
+            VAn.AddAnnotation(labels, body);
+
+            PlacePanel();
         }
 
         public override void OnEnd(bool isRt)
         {
-            if (sessions.Count > 0)
-                Extend(VAn.LastIndex());
+            PlacePanel();
+
+            box.LineColor = BorderColor;
+            box.BackColor = BorderColor.WithOpacity(BackgroundOpacity);
+
+            header.ForeColor = BorderColor;
+            header.Text = "DEEP HOLDER TIMER";
+
+            body.Text = "Fixed panel test\nRectangle is Relative\nPosition should stay fixed";
         }
 
-        private void StartSession(int index)
+        private void PlacePanel()
         {
-            var bar = VAn.BarVars[index];
+            const double marginX = 0.02;
+            const double marginY = 0.04;
+            const double width = 0.30;
+            const double height = 0.24;
 
-            var session = new SessionBox
+            double left;
+            double right;
+            double top;
+            double bottom;
+
+            switch (PanelPosition)
             {
-                FirstIndex = index,
-                High = bar.High,
-                Low = bar.Low
-            };
+                case FixedPanelPosition.TopLeft:
+                    left = marginX;
+                    right = left + width;
+                    top = 1.0 - marginY;
+                    bottom = top - height;
+                    break;
 
-            session.Box = VAn.CreateAnnotation(AnnotationType.Rectangle);
-            session.Box.LineColor = BoxColor;
-            session.Box.BackColor = BoxColor.WithOpacity(25);
-            session.Box.LineWidth = 1;
+                case FixedPanelPosition.TopRight:
+                    right = 1.0 - marginX;
+                    left = right - width;
+                    top = 1.0 - marginY;
+                    bottom = top - height;
+                    break;
 
-            VAn.AddAnnotation(boxes, session.Box);
+                case FixedPanelPosition.BottomLeft:
+                    left = marginX;
+                    right = left + width;
+                    bottom = marginY;
+                    top = bottom + height;
+                    break;
 
-            if (ShowSize)
-            {
-                session.Label = VAn.CreateAnnotation(AnnotationType.Text);
-                session.Label.ForeColor = BoxColor;
-                session.Label.FontSize = 11;
-
-                VAn.AddAnnotation(labels, session.Label);
+                case FixedPanelPosition.BottomRight:
+                default:
+                    right = 1.0 - marginX;
+                    left = right - width;
+                    bottom = marginY;
+                    top = bottom + height;
+                    break;
             }
 
-            sessions.Add(session);
-            Place(session, index);
+            // SAME ORDER AS SESSION RANGE BOX:
+            // X -> X2 from left to right, Y -> Y2 from top/high to bottom/low.
+            box.X = left;
+            box.X2 = right;
+            box.Y = top;
+            box.Y2 = bottom;
 
-            if (sessions.Count > MaxSessions)
-            {
-                var oldest = sessions[0];
+            header.X = left + 0.015;
+            header.Y = top - 0.025;
 
-                boxes.RemoveAnnotation(oldest.Box);
-
-                if (oldest.Label != null)
-                    labels.RemoveAnnotation(oldest.Label);
-
-                sessions.RemoveAt(0);
-            }
-        }
-
-        private void Extend(int index)
-        {
-            var session = sessions[sessions.Count - 1];
-            var bar = VAn.BarVars[index];
-
-            session.High = Math.Max(session.High, bar.High);
-            session.Low = Math.Min(session.Low, bar.Low);
-
-            Place(session, index);
-        }
-
-        private void Place(SessionBox session, int lastIndex)
-        {
-            session.Box.X = session.FirstIndex + 0.5;
-            session.Box.X2 = lastIndex + 1.5;
-            session.Box.Y = session.High;
-            session.Box.Y2 = session.Low;
-
-            if (session.Label != null)
-            {
-                session.Label.X = session.FirstIndex + 1;
-                session.Label.Y = session.High;
-                session.Label.Text =
-                    $"{VAn.GetDoubleTicksDiff(session.Low, session.High)} ticks";
-            }
+            body.X = left + 0.015;
+            body.Y = top - 0.075;
         }
     }
 }
