@@ -74,6 +74,10 @@ public class TradeHoldTimer : Indicator
     private IAnnotation _sampleRow;
     private IAnnotation _footer;
 
+    private decimal _lastNetQuantity;
+    private DateTime? _tradeOpenedAtUtc;
+    private bool _positionStateInitialized;
+
     public override void OnSet(bool setDefault, bool themeOverride)
     {
         OnEndCall = CallHandler.HistRT;
@@ -94,6 +98,10 @@ public class TradeHoldTimer : Indicator
         _columns = CreateText(true, FontSize);
         _sampleRow = CreateText(false, FontSize);
         _footer = CreateText(false, Math.Max(8, FontSize - 1));
+
+        _lastNetQuantity = 0;
+        _tradeOpenedAtUtc = null;
+        _positionStateInitialized = false;
 
         StatusMessage = null;
     }
@@ -142,11 +150,46 @@ public class TradeHoldTimer : Indicator
         _sampleRow.FontSize = FontSize;
 
         decimal net = TradingApi.PositionNetQuantity;
-        decimal buy = TradingApi.PositionBuyQuantity;
-        decimal sell = TradingApi.PositionSellQuantity;
+
+        if (isRt)
+            UpdateTradeState(net);
 
         string side = net > 0 ? "LONG" : net < 0 ? "SHORT" : "FLAT";
-        _sampleRow.Text = $"{side,-6} NET {net}  B {buy}  S {sell}";
+        decimal qty = Math.Abs(net);
+
+        if (net == 0 || _tradeOpenedAtUtc == null)
+        {
+            _sampleRow.Text = $"{side,-6} {qty,-7} 00:00.0     WAITING";
+            _sampleRow.ForeColor = ColorRef.FromRgb(230, 230, 235);
+        }
+        else
+        {
+            TimeSpan elapsed = DateTime.UtcNow - _tradeOpenedAtUtc.Value;
+            if (elapsed < TimeSpan.Zero)
+                elapsed = TimeSpan.Zero;
+
+            double seconds = elapsed.TotalSeconds;
+            string elapsedText = FormatElapsed(elapsed);
+            string status;
+
+            if (seconds < MinimumHoldSeconds)
+            {
+                status = "HOLD";
+                _sampleRow.ForeColor = IMethodAPI.GetColorRefForTheme(ColorReferenceEnum.Down, ColorTypeEnum.Text);
+            }
+            else if (seconds < MinimumHoldSeconds + SafetyBufferSeconds)
+            {
+                status = "MIN REACHED";
+                _sampleRow.ForeColor = ColorRef.Yellow;
+            }
+            else
+            {
+                status = "SAFE";
+                _sampleRow.ForeColor = IMethodAPI.GetColorRefForTheme(ColorReferenceEnum.Up, ColorTypeEnum.Text);
+            }
+
+            _sampleRow.Text = $"{side,-6} {qty,-7} {elapsedText,-10} {status}";
+        }
 
         _footer.X = textX;
         _footer.Y = top + height * 0.78;
@@ -155,8 +198,51 @@ public class TradeHoldTimer : Indicator
 
         _title.ForeColor = ColorRef.FromRgb(245, 245, 248);
         _columns.ForeColor = ColorRef.FromRgb(175, 178, 188);
-        _sampleRow.ForeColor = ColorRef.FromRgb(230, 230, 235);
         _footer.ForeColor = ColorRef.FromRgb(150, 153, 163);
+    }
+
+    private void UpdateTradeState(decimal net)
+    {
+        if (!_positionStateInitialized)
+        {
+            _positionStateInitialized = true;
+            _lastNetQuantity = net;
+
+            // If the indicator is attached while a position is already open,
+            // this is only the first observed moment, not the historical fill time.
+            if (net != 0)
+                _tradeOpenedAtUtc = DateTime.UtcNow;
+
+            return;
+        }
+
+        bool wasFlat = _lastNetQuantity == 0;
+        bool isFlat = net == 0;
+        bool reversed = !wasFlat && !isFlat && Math.Sign(_lastNetQuantity) != Math.Sign(net);
+
+        if (wasFlat && !isFlat)
+        {
+            // First observed filled position: start the timer.
+            _tradeOpenedAtUtc = DateTime.UtcNow;
+        }
+        else if (reversed)
+        {
+            // Reversal closes the previous trade and starts a new one.
+            _tradeOpenedAtUtc = DateTime.UtcNow;
+        }
+        else if (!wasFlat && isFlat)
+        {
+            // Full exit: stop/reset. Scale-ins and partial exits intentionally do nothing.
+            _tradeOpenedAtUtc = null;
+        }
+
+        _lastNetQuantity = net;
+    }
+
+    private static string FormatElapsed(TimeSpan elapsed)
+    {
+        int minutes = (int)elapsed.TotalMinutes;
+        return $"{minutes:00}:{elapsed.Seconds:00}.{elapsed.Milliseconds / 100}";
     }
 
     private void GetPanelBounds(out double left, out double top, out double right, out double bottom)
