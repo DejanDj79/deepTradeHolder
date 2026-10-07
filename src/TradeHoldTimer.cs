@@ -71,24 +71,24 @@ namespace DeepTradeHolder
             IndVars.Ann_List.AddGroup(labels);
 
             box = VAn.CreateAnnotation(AnnotationType.Rectangle);
-            box.CoordinateXType = CoordinateTypeEnum.Relative;
-            box.CoordinateYType = CoordinateTypeEnum.Relative;
+            box.CoordinateXType = CoordinateTypeEnum.Pixel;
+            box.CoordinateYType = CoordinateTypeEnum.Pixel;
             box.LineWidth = 2;
             box.LineColor = BorderColor;
             box.BackColor = BorderColor.WithOpacity(BackgroundOpacity);
             VAn.AddAnnotation(boxes, box);
 
             header = VAn.CreateAnnotation(AnnotationType.Text);
-            header.CoordinateXType = CoordinateTypeEnum.Relative;
-            header.CoordinateYType = CoordinateTypeEnum.Relative;
+            header.CoordinateXType = CoordinateTypeEnum.Pixel;
+            header.CoordinateYType = CoordinateTypeEnum.Pixel;
             header.ForeColor = BorderColor;
             header.FontSize = 12;
             header.FontBold = true;
             VAn.AddAnnotation(labels, header);
 
             body = VAn.CreateAnnotation(AnnotationType.Text);
-            body.CoordinateXType = CoordinateTypeEnum.Relative;
-            body.CoordinateYType = CoordinateTypeEnum.Relative;
+            body.CoordinateXType = CoordinateTypeEnum.Pixel;
+            body.CoordinateYType = CoordinateTypeEnum.Pixel;
             body.ForeColor = ColorRef.FromRgb(230, 230, 235);
             body.FontSize = 11;
             VAn.AddAnnotation(labels, body);
@@ -111,60 +111,27 @@ namespace DeepTradeHolder
 
         private void PlacePanel()
         {
-            const double marginX = 0.02;
-            const double marginY = 0.04;
-            const double width = 0.30;
-            const double height = 0.24;
+            const double margin = 20;
+            const double width = 320;
+            const double height = 220;
 
-            double left;
-            double right;
-            double top;
-            double bottom;
+            // First test only: fixed top-left pixel coordinates.
+            // Pixel coordinates are measured from the edge of the chart area.
+            double left = margin;
+            double top = margin;
+            double right = left + width;
+            double bottom = top + height;
 
-            switch (PanelPosition)
-            {
-                case FixedPanelPosition.TopLeft:
-                    left = marginX;
-                    right = left + width;
-                    top = 1.0 - marginY;
-                    bottom = top - height;
-                    break;
-
-                case FixedPanelPosition.TopRight:
-                    right = 1.0 - marginX;
-                    left = right - width;
-                    top = 1.0 - marginY;
-                    bottom = top - height;
-                    break;
-
-                case FixedPanelPosition.BottomLeft:
-                    left = marginX;
-                    right = left + width;
-                    bottom = marginY;
-                    top = bottom + height;
-                    break;
-
-                case FixedPanelPosition.BottomRight:
-                default:
-                    right = 1.0 - marginX;
-                    left = right - width;
-                    bottom = marginY;
-                    top = bottom + height;
-                    break;
-            }
-
-            // SAME ORDER AS SESSION RANGE BOX:
-            // X -> X2 from left to right, Y -> Y2 from top/high to bottom/low.
             box.X = left;
             box.X2 = right;
             box.Y = top;
             box.Y2 = bottom;
 
-            header.X = left + 0.015;
-            header.Y = top - 0.025;
+            header.X = left + 14;
+            header.Y = top + 18;
 
-            body.X = left + 0.015;
-            body.Y = top - 0.075;
+            body.X = left + 14;
+            body.Y = top + 58;
         }
     }
 }
