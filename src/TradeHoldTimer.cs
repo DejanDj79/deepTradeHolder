@@ -57,7 +57,7 @@ public class TradeHoldTimer : Indicator
     [DisplayName("Vertical position")]
     [Description("Initial relative Y position of the panel on the chart.")]
     [VolCustom(CategoryIndex = 1, PropertyIndex = 2, MinValue = 0, MaxValue = 1, IncrementValue = 0.05, DecimalPosToShow = 2)]
-    public double VerticalPosition { get; set; } = 0.95;
+    public double VerticalPosition { get; set; } = 0.80;
 
     [Category("Layout")]
     [DisplayName("Font size")]
