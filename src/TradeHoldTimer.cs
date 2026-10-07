@@ -81,8 +81,7 @@ public class TradeHoldTimer : Indicator
 
     #endregion
 
-    private IAnnGroup _panelGroup;
-    private IAnnGroup _textGroup;
+    private IAnnGroup _group;
     private IAnnotation _panel;
     private IAnnotation _title;
     private IAnnotation _columns;
@@ -111,20 +110,16 @@ public class TradeHoldTimer : Indicator
 
     public override void OnLoad()
     {
-        // Keep shapes and text in their own annotation groups, following
-        // the official DeepCharts annotation examples.
-        _panelGroup = VAn.CreateAnnGroup();
-        _textGroup = VAn.CreateAnnGroup();
-        IndVars.FrontAnnList.AddGroup(_panelGroup);
-        IndVars.FrontAnnList.AddGroup(_textGroup);
+        // Absolute-coordinate test that follows the official DeepCharts
+        // annotation example exactly: one group, one Rectangle, then Text items.
+        _group = VAn.CreateAnnGroup();
+        IndVars.FrontAnnList.AddGroup(_group);
 
         _panel = VAn.CreateAnnotation(AnnotationType.Rectangle);
-        _panel.CoordinateXType = CoordinateTypeEnum.Relative;
-        _panel.CoordinateYType = CoordinateTypeEnum.Relative;
         _panel.LineWidth = 2;
         _panel.LineColor = ColorRef.FromRgb(125, 132, 146);
-        _panel.BackColor = ColorRef.FromRgb(18, 20, 24).WithOpacity(225);
-        VAn.AddAnnotation(_panelGroup, _panel);
+        _panel.BackColor = ColorRef.FromRgb(125, 132, 146).WithOpacity(25);
+        VAn.AddAnnotation(_group, _panel);
 
         _title = CreateText(true, FontSize);
         _columns = CreateText(true, FontSize);
@@ -148,13 +143,11 @@ public class TradeHoldTimer : Indicator
     private IAnnotation CreateText(bool bold, int fontSize)
     {
         var label = VAn.CreateAnnotation(AnnotationType.Text);
-        label.CoordinateXType = CoordinateTypeEnum.Relative;
-        label.CoordinateYType = CoordinateTypeEnum.Relative;
         label.TextAlign = TextAlignment.VLeftHTop;
         label.ForeColor = ColorRef.FromRgb(230, 230, 235);
         label.FontBold = bold;
         label.FontSize = fontSize;
-        VAn.AddAnnotation(_textGroup, label);
+        VAn.AddAnnotation(_group, label);
         return label;
     }
 
@@ -163,26 +156,49 @@ public class TradeHoldTimer : Indicator
         if (_panel == null)
             return;
 
-        GetPanelBounds(out double left, out double top, out double right, out double bottom);
+        int lastIndex = VAn.LastIndex();
+        if (lastIndex < 0)
+            return;
 
-        _panel.X = left;
-        _panel.X2 = right;
+        int firstIndex = Math.Max(0, lastIndex - 18);
+        int rangeStart = Math.Max(0, lastIndex - 40);
+
+        double recentHigh = VAn.BarVars[rangeStart].High;
+        double recentLow = VAn.BarVars[rangeStart].Low;
+
+        for (int i = rangeStart + 1; i <= lastIndex; i++)
+        {
+            recentHigh = Math.Max(recentHigh, VAn.BarVars[i].High);
+            recentLow = Math.Min(recentLow, VAn.BarVars[i].Low);
+        }
+
+        double priceRange = recentHigh - recentLow;
+        if (priceRange <= 0)
+            priceRange = Math.Max(Math.Abs(recentHigh) * 0.001, 1.0);
+
+        double x1 = firstIndex + 0.5;
+        double x2 = lastIndex + 1.5;
+        double top = recentHigh + priceRange * 0.08;
+        double bottom = top - priceRange * 0.72;
+
+        _panel.X = x1;
+        _panel.X2 = x2;
         _panel.Y = top;
         _panel.Y2 = bottom;
         _panel.LineColor = ColorRef.FromRgb(125, 132, 146);
-        _panel.BackColor = ColorRef.FromRgb(18, 20, 24).WithOpacity(225);
+        _panel.BackColor = ColorRef.FromRgb(125, 132, 146).WithOpacity(25);
         _panel.LineWidth = 2;
 
-        double width = right - left;
-        double textX = left + width * 0.045;
+        double textX = x1 + 0.5;
+        double lineStep = (top - bottom) / Math.Max(VisibleRows + 5, 7);
 
-        _title.X = textX;
-        _title.Y = top + 0.018;
+        _title.X = x1;
+        _title.Y = top;
         _title.FontSize = FontSize;
         _title.Text = "TRADE HOLD TIMER";
 
         _columns.X = textX;
-        _columns.Y = top + 0.058;
+        _columns.Y = top - lineStep;
         _columns.FontSize = FontSize;
         _columns.Text = "SIDE      QTY      ELAPSED      STATUS";
 
@@ -191,15 +207,15 @@ public class TradeHoldTimer : Indicator
         if (isRt)
             UpdateTradeLots(net);
 
-        double rowStartY = top + 0.095;
-        double rowSpacing = 0.034;
+        double rowStartY = top - lineStep * 2.0;
+        double rowSpacing = lineStep;
 
         int firstLot = Math.Max(0, _lots.Count - _rows.Count);
         for (int i = 0; i < _rows.Count; i++)
         {
             IAnnotation row = _rows[i];
             row.X = textX;
-            row.Y = rowStartY + i * rowSpacing;
+            row.Y = rowStartY - i * rowSpacing;
             row.FontSize = FontSize;
 
             int lotIndex = firstLot + i;
@@ -228,7 +244,7 @@ public class TradeHoldTimer : Indicator
         }
 
         _overallStatus.X = textX;
-        _overallStatus.Y = rowStartY + _rows.Count * rowSpacing + 0.006;
+        _overallStatus.Y = rowStartY - _rows.Count * rowSpacing;
         _overallStatus.FontSize = FontSize;
 
         bool allSafeNow = false;
@@ -281,7 +297,7 @@ public class TradeHoldTimer : Indicator
         }
 
         _scrollInfo.X = textX;
-        _scrollInfo.Y = _overallStatus.Y + 0.031;
+        _scrollInfo.Y = _overallStatus.Y - lineStep;
         _scrollInfo.FontSize = Math.Max(8, FontSize - 2);
 
         if (_lots.Count > _rows.Count)
@@ -297,7 +313,7 @@ public class TradeHoldTimer : Indicator
         _scrollInfo.ForeColor = ColorRef.FromRgb(145, 150, 162);
 
         _footer.X = textX;
-        _footer.Y = _scrollInfo.Y + 0.030;
+        _footer.Y = _scrollInfo.Y - lineStep;
         _footer.FontSize = Math.Max(8, FontSize - 1);
         _footer.Text = $"Min {MinimumHoldSeconds}s · Safe {MinimumHoldSeconds + SafetyBufferSeconds}s";
         _footer.ForeColor = ColorRef.FromRgb(155, 160, 172);
@@ -422,40 +438,5 @@ public class TradeHoldTimer : Indicator
     {
         int minutes = (int)elapsed.TotalMinutes;
         return $"{minutes:00}:{elapsed.Seconds:00}.{elapsed.Milliseconds / 100}";
-    }
-
-    private void GetPanelBounds(out double left, out double top, out double right, out double bottom)
-    {
-        const double marginX = 0.012;
-        const double marginY = 0.025;
-        const double panelWidth = 0.30;
-        double panelHeight = 0.225 + VisibleRows * 0.034;
-
-        switch (PanelPosition)
-        {
-            case TradeHoldPanelPosition.TopLeft:
-                left = marginX;
-                top = marginY;
-                break;
-
-            case TradeHoldPanelPosition.BottomLeft:
-                left = marginX;
-                top = 1.0 - marginY - panelHeight;
-                break;
-
-            case TradeHoldPanelPosition.BottomRight:
-                left = 1.0 - marginX - panelWidth;
-                top = 1.0 - marginY - panelHeight;
-                break;
-
-            case TradeHoldPanelPosition.TopRight:
-            default:
-                left = 1.0 - marginX - panelWidth;
-                top = marginY;
-                break;
-        }
-
-        right = Math.Min(0.995, left + panelWidth);
-        bottom = Math.Min(0.995, top + panelHeight);
     }
 }
