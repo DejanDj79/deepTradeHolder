@@ -49,7 +49,7 @@ namespace DeepTradeHolder
         [Category("Colors")]
         [DisplayName("Background opacity")]
         [VolCustom(CategoryIndex = 1, PropertyIndex = 1, MinValue = 0, MaxValue = 255, IncrementValue = 5)]
-        public int BackgroundOpacity { get; set; } = 45;
+        public byte BackgroundOpacity { get; set; } = 45;
 
         #endregion
 
