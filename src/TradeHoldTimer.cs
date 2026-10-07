@@ -156,7 +156,7 @@ public class TradeHoldTimer : Indicator
     private void GetPanelBounds(out double left, out double top, out double right, out double bottom)
     {
         const double leftMarginX = -0.007;
-        const double rightShiftX = 0.077;
+        const double rightShiftX = 0.187;
         const double marginY = 0.025;
         const double panelWidth = 0.30;
         const double panelHeight = 0.18;
