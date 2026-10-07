@@ -113,7 +113,7 @@ public class TradeHoldTimer : Indicator
         // Absolute-coordinate test that follows the official DeepCharts
         // annotation example exactly: one group, one Rectangle, then Text items.
         _group = VAn.CreateAnnGroup();
-        IndVars.FrontAnnList.AddGroup(_group);
+        IndVars.Ann_List.AddGroup(_group);
 
         _panel = VAn.CreateAnnotation(AnnotationType.Rectangle);
         _panel.LineWidth = 2;
