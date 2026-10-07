@@ -140,7 +140,13 @@ public class TradeHoldTimer : Indicator
         _sampleRow.X = textX;
         _sampleRow.Y = top + height * 0.55;
         _sampleRow.FontSize = FontSize;
-        _sampleRow.Text = "--       --      00:00.0     WAITING";
+
+        decimal net = TradingApi.PositionNetQuantity;
+        decimal buy = TradingApi.PositionBuyQuantity;
+        decimal sell = TradingApi.PositionSellQuantity;
+
+        string side = net > 0 ? "LONG" : net < 0 ? "SHORT" : "FLAT";
+        _sampleRow.Text = $"{side,-6} NET {net}  B {buy}  S {sell}";
 
         _footer.X = textX;
         _footer.Y = top + height * 0.78;
