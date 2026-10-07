@@ -49,21 +49,32 @@ public class TradeHoldTimer : Indicator
     [VolCustom(CategoryIndex = 0, PropertyIndex = 1, MinValue = 0, MaxValue = 60, IncrementValue = 1)]
     public int SafetyBufferSeconds { get; set; } = 2;
 
+    [Category("Alerts")]
+    [DisplayName("Enable ALL SAFE alert")]
+    [Description("Play the selected sound once when the whole position first becomes ALL SAFE.")]
+    [VolCustom(CategoryIndex = 1, PropertyIndex = 0)]
+    public bool EnableAllSafeAlert { get; set; } = true;
+
+    [Category("Alerts")]
+    [DisplayName("Alert sound")]
+    [VolCustom(CategoryIndex = 1, PropertyIndex = 1, IsAlert = true)]
+    public DynamicList AlertName { get; set; } = new DynamicList();
+
     [Category("Layout")]
     [DisplayName("Visible rows")]
     [Description("Target number of visible trade rows before internal scrolling is used.")]
-    [VolCustom(CategoryIndex = 1, PropertyIndex = 0, MinValue = 1, MaxValue = 15, IncrementValue = 1)]
+    [VolCustom(CategoryIndex = 2, PropertyIndex = 0, MinValue = 1, MaxValue = 15, IncrementValue = 1)]
     public int VisibleRows { get; set; } = 5;
 
     [Category("Layout")]
     [DisplayName("Panel position")]
     [Description("Corner of the chart where the timer panel is anchored.")]
-    [VolCustom(CategoryIndex = 1, PropertyIndex = 1)]
+    [VolCustom(CategoryIndex = 2, PropertyIndex = 1)]
     public TradeHoldPanelPosition PanelPosition { get; set; } = TradeHoldPanelPosition.TopRight;
 
     [Category("Layout")]
     [DisplayName("Font size")]
-    [VolCustom(CategoryIndex = 1, PropertyIndex = 2, MinValue = 8, MaxValue = 24, IncrementValue = 1)]
+    [VolCustom(CategoryIndex = 2, PropertyIndex = 2, MinValue = 8, MaxValue = 24, IncrementValue = 1)]
     public int FontSize { get; set; } = 11;
 
     #endregion
@@ -85,6 +96,7 @@ public class TradeHoldTimer : Indicator
     private readonly List<TradeLot> _lots = new List<TradeLot>();
     private decimal _lastNetQuantity;
     private bool _positionStateInitialized;
+    private bool _allSafeAlerted;
 
     public override void OnSet(bool setDefault, bool themeOverride)
     {
@@ -115,6 +127,7 @@ public class TradeHoldTimer : Indicator
         _lots.Clear();
         _lastNetQuantity = 0;
         _positionStateInitialized = false;
+        _allSafeAlerted = false;
 
         StatusMessage = null;
     }
@@ -202,6 +215,8 @@ public class TradeHoldTimer : Indicator
         _overallStatus.Y = rowStartY + _rows.Count * rowSpacing + 0.006;
         _overallStatus.FontSize = FontSize;
 
+        bool allSafeNow = false;
+
         if (_lots.Count == 0)
         {
             _overallStatus.Text = "POSITION: WAITING";
@@ -228,9 +243,25 @@ public class TradeHoldTimer : Indicator
             }
             else
             {
+                allSafeNow = true;
                 _overallStatus.Text = "POSITION: ALL SAFE";
                 _overallStatus.ForeColor = IMethodAPI.GetColorRefForTheme(ColorReferenceEnum.Up, ColorTypeEnum.Text);
             }
+        }
+
+        if (allSafeNow)
+        {
+            if (isRt && EnableAllSafeAlert && !_allSafeAlerted)
+            {
+                if (!string.IsNullOrWhiteSpace(AlertName?.SelValue))
+                    VAn.PlayAlert(AlertName.SelValue);
+
+                _allSafeAlerted = true;
+            }
+        }
+        else
+        {
+            _allSafeAlerted = false;
         }
 
         _footer.X = textX;
