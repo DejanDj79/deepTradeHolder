@@ -70,6 +70,11 @@ public class TradeHoldTimer : Indicator
 
     public override void OnSet(bool setDefault, bool themeOverride)
     {
+        // DeepCharts does not calculate/draw an indicator unless at least one
+        // chart callback is requested. OnEnd is enough for this fixed overlay.
+        OnEndCall = CallHandler.HistRT;
+
+        // This is the small description shown next to the indicator name.
         Description = $"Min {MinimumHoldSeconds}s · Safe {MinimumHoldSeconds + SafetyBufferSeconds}s";
     }
 
@@ -78,6 +83,20 @@ public class TradeHoldTimer : Indicator
         _statusLabel = VAn.CreateAnnotation(AnnotationType.Text);
         _statusLabel.CoordinateXType = CoordinateTypeEnum.Relative;
         _statusLabel.CoordinateYType = CoordinateTypeEnum.Relative;
+
+        VAn.AddAnnotation(IndVars.FrontAnnList, _statusLabel);
+
+        StatusMessage =
+            "Trade Hold Timer loaded. TradingApi position/fill integration is the next implementation step.";
+    }
+
+    public override void OnEnd(bool isRt)
+    {
+        if (_statusLabel == null)
+            return;
+
+        // Apply these on every calculation so layout settings immediately
+        // affect the existing annotation.
         _statusLabel.X = HorizontalPosition;
         _statusLabel.Y = VerticalPosition;
         _statusLabel.FontSize = FontSize;
@@ -85,12 +104,7 @@ public class TradeHoldTimer : Indicator
         _statusLabel.ForeColor = ColorRef.FromRgb(230, 230, 230);
         _statusLabel.Text =
             $"TRADE HOLD TIMER\n" +
-            $"SDK LINK OK\n" +
+            $"SDK LINK OK · PHASE 1\n" +
             $"Min {MinimumHoldSeconds}s · Safe {MinimumHoldSeconds + SafetyBufferSeconds}s · Rows {VisibleRows}";
-
-        VAn.AddAnnotation(IndVars.FrontAnnList, _statusLabel);
-
-        StatusMessage =
-            "Trade Hold Timer loaded. TradingApi position/fill integration is the next implementation step.";
     }
 }
