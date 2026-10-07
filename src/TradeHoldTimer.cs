@@ -73,6 +73,9 @@ public class TradeHoldTimer : Indicator
     private IAnnotation _columns;
     private IAnnotation _sampleRow;
     private IAnnotation _footer;
+    private IAnnotation _sepTitle;
+    private IAnnotation _sepHeader;
+    private IAnnotation _sepRow;
 
     public override void OnSet(bool setDefault, bool themeOverride)
     {
@@ -85,9 +88,9 @@ public class TradeHoldTimer : Indicator
         _panel = VAn.CreateAnnotation(AnnotationType.Rectangle);
         _panel.CoordinateXType = CoordinateTypeEnum.Relative;
         _panel.CoordinateYType = CoordinateTypeEnum.Relative;
-        _panel.LineWidth = 1;
-        _panel.LineColor = ColorRef.FromRgb(110, 110, 120);
-        _panel.BackColor = ColorRef.FromRgb(25, 27, 31).WithOpacity(88);
+        _panel.LineWidth = 2;
+        _panel.LineColor = ColorRef.FromRgb(170, 174, 186);
+        _panel.BackColor = ColorRef.FromRgb(25, 27, 31).WithOpacity(92);
         VAn.AddAnnotation(IndVars.FrontAnnList, _panel);
 
         _title = CreateText(true, FontSize + 1);
@@ -95,7 +98,22 @@ public class TradeHoldTimer : Indicator
         _sampleRow = CreateText(false, FontSize);
         _footer = CreateText(false, Math.Max(8, FontSize - 1));
 
+        _sepTitle = CreateSeparator();
+        _sepHeader = CreateSeparator();
+        _sepRow = CreateSeparator();
+
         StatusMessage = null;
+    }
+
+    private IAnnotation CreateSeparator()
+    {
+        var line = VAn.CreateAnnotation(AnnotationType.Line);
+        line.CoordinateXType = CoordinateTypeEnum.Relative;
+        line.CoordinateYType = CoordinateTypeEnum.Relative;
+        line.LineWidth = 1;
+        line.LineColor = ColorRef.FromRgb(105, 109, 120);
+        VAn.AddAnnotation(IndVars.FrontAnnList, line);
+        return line;
     }
 
     private IAnnotation CreateText(bool bold, int fontSize)
@@ -147,10 +165,22 @@ public class TradeHoldTimer : Indicator
         _footer.FontSize = Math.Max(8, FontSize - 1);
         _footer.Text = $"Min {MinimumHoldSeconds}s · Safe {MinimumHoldSeconds + SafetyBufferSeconds}s";
 
+        PlaceSeparator(_sepTitle, left, right, top + height * 0.27);
+        PlaceSeparator(_sepHeader, left, right, top + height * 0.48);
+        PlaceSeparator(_sepRow, left, right, top + height * 0.70);
+
         _title.ForeColor = ColorRef.FromRgb(245, 245, 248);
         _columns.ForeColor = ColorRef.FromRgb(175, 178, 188);
         _sampleRow.ForeColor = ColorRef.FromRgb(230, 230, 235);
         _footer.ForeColor = ColorRef.FromRgb(150, 153, 163);
+    }
+
+    private static void PlaceSeparator(IAnnotation line, double left, double right, double y)
+    {
+        line.X = left;
+        line.X2 = right;
+        line.Y = y;
+        line.Y2 = y;
     }
 
     private void GetPanelBounds(out double left, out double top, out double right, out double bottom)
