@@ -15,7 +15,12 @@
     <DeepchartDir Condition="'$(DeepchartDir)' == ''">C:\Program Files\Volumetrica Trading\Deepchart\</DeepchartDir>
     <DeepchartLibDir>$([MSBuild]::EnsureTrailingSlash('$(DeepchartDir)'))</DeepchartLibDir>
     <DeepchartDevId Condition="'$(DeepchartDevId)' == ''">YOUR-DEV-ID</DeepchartDevId>
-    <OutputPath Condition="'$(OutputPath)' == ''">$(UserProfile)\Documents\Deepchart\Indicators\</OutputPath>
+
+    <!-- DeepCharts follows the Windows Documents folder. On systems where Documents is redirected
+         to OneDrive, prefer that location; otherwise use the normal user Documents folder. -->
+    <DeepchartIndicatorsDir Condition="'$(DeepchartIndicatorsDir)' == '' and '$(OneDrive)' != '' and Exists('$(OneDrive)\Documents')">$(OneDrive)\Documents\Deepchart\Indicators\</DeepchartIndicatorsDir>
+    <DeepchartIndicatorsDir Condition="'$(DeepchartIndicatorsDir)' == ''">$(UserProfile)\Documents\Deepchart\Indicators\</DeepchartIndicatorsDir>
+    <OutputPath Condition="'$(OutputPath)' == ''">$(DeepchartIndicatorsDir)</OutputPath>
   </PropertyGroup>
 
   <ItemGroup>
