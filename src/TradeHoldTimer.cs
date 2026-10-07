@@ -155,7 +155,8 @@ public class TradeHoldTimer : Indicator
 
     private void GetPanelBounds(out double left, out double top, out double right, out double bottom)
     {
-        const double marginX = 0.004;
+        const double leftMarginX = -0.007;
+        const double rightShiftX = 0.077;
         const double marginY = 0.025;
         const double panelWidth = 0.30;
         const double panelHeight = 0.18;
@@ -163,23 +164,23 @@ public class TradeHoldTimer : Indicator
         switch (PanelPosition)
         {
             case TradeHoldPanelPosition.TopLeft:
-                left = marginX;
+                left = leftMarginX;
                 top = marginY;
                 break;
 
             case TradeHoldPanelPosition.BottomLeft:
-                left = marginX;
+                left = leftMarginX;
                 top = 1.0 - marginY - panelHeight;
                 break;
 
             case TradeHoldPanelPosition.BottomRight:
-                left = 1.0 - marginX - panelWidth;
+                left = 1.0 - panelWidth + rightShiftX;
                 top = 1.0 - marginY - panelHeight;
                 break;
 
             case TradeHoldPanelPosition.TopRight:
             default:
-                left = 1.0 - marginX - panelWidth;
+                left = 1.0 - panelWidth + rightShiftX;
                 top = marginY;
                 break;
         }
