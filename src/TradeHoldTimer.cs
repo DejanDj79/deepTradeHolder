@@ -126,7 +126,7 @@ public class TradeHoldTimer : Indicator
         _panel.LineColor = BorderColor;
         _panel.BackColor = ColorRef.FromRgb(18, 20, 24).WithOpacity(235);
         _panel.ForeColor = ColorRef.FromRgb(18, 20, 24).WithOpacity(235);
-        _panel.Text = BuildPanelBackground(VisibleRows);
+        _panel.Text = " ";
         VAn.AddAnnotation(IndVars.FrontAnnList, _panel);
 
         _title = CreateText(true, FontSize);
@@ -168,14 +168,19 @@ public class TradeHoldTimer : Indicator
 
         GetPanelAnchor(out double left, out double top);
 
+        const double panelWidth = 0.30;
+        double panelHeight = 0.19 + VisibleRows * 0.034;
+
         _panel.X = left;
         _panel.Y = top;
+        _panel.Width = panelWidth;
+        _panel.Height = panelHeight;
         _panel.FontSize = FontSize;
         _panel.LineColor = BorderColor;
         _panel.LineWidth = 2;
         _panel.BackColor = ColorRef.FromRgb(18, 20, 24).WithOpacity(235);
         _panel.ForeColor = ColorRef.FromRgb(18, 20, 24).WithOpacity(235);
-        _panel.Text = BuildPanelBackground(VisibleRows);
+        _panel.Text = " ";
 
         double textX = left + 0.012;
         const double rowSpacing = 0.034;
@@ -419,15 +424,6 @@ public class TradeHoldTimer : Indicator
 
         color = IMethodAPI.GetColorRefForTheme(ColorReferenceEnum.Up, ColorTypeEnum.Text);
         return "SAFE";
-    }
-
-    private static string BuildPanelBackground(int visibleRows)
-    {
-        // A non-empty text block is required for Text BackColor/LineColor to
-        // produce a visible rectangular surface. Non-breaking spaces preserve width.
-        int lineCount = visibleRows + 5;
-        string line = new string('\u00A0', 44);
-        return string.Join("\n", Enumerable.Repeat(line, lineCount));
     }
 
     private void GetPanelAnchor(out double left, out double top)
