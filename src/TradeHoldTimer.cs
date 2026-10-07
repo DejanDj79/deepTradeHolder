@@ -100,6 +100,10 @@ public class TradeHoldTimer : Indicator
         _statusLabel.X = HorizontalPosition;
         _statusLabel.Y = VerticalPosition;
         _statusLabel.TextAlign = GetTextAlignment(HorizontalPosition, VerticalPosition);
+        _statusLabel.LabelAlign = GetLabelAlignment(HorizontalPosition);
+        _statusLabel.TextOnlyInside = true;
+        _statusLabel.needToShowAllText = true;
+        _statusLabel.CheckStringWidthInside = true;
         _statusLabel.FontSize = FontSize;
         _statusLabel.FontBold = true;
         _statusLabel.ForeColor = ColorRef.FromRgb(230, 230, 230);
@@ -107,6 +111,13 @@ public class TradeHoldTimer : Indicator
             $"TRADE HOLD TIMER\n" +
             $"SDK LINK OK · PHASE 1\n" +
             $"Min {MinimumHoldSeconds}s · Safe {MinimumHoldSeconds + SafetyBufferSeconds}s · Rows {VisibleRows}";
+    }
+
+    private static LabelAlignEnum GetLabelAlignment(double x)
+    {
+        if (x <= 0.33) return LabelAlignEnum.Left;
+        if (x >= 0.67) return LabelAlignEnum.Right;
+        return LabelAlignEnum.Center;
     }
 
     private static TextAlignment GetTextAlignment(double x, double y)
