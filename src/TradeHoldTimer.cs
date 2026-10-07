@@ -114,19 +114,15 @@ public class TradeHoldTimer : Indicator
 
     public override void OnLoad()
     {
-        // DeepCharts reliably renders background + border on Text annotations
-        // in this desktop build. Use one multiline Text annotation as the single
-        // visual panel container, then draw all real labels over it.
-        _panel = VAn.CreateAnnotation(AnnotationType.Text);
+        // Real fixed Rectangle panel. For rectangles DeepCharts follows the
+        // same Y ordering as the official SessionRangeBox example:
+        // Y = top/high, Y2 = bottom/low.
+        _panel = VAn.CreateAnnotation(AnnotationType.Rectangle);
         _panel.CoordinateXType = CoordinateTypeEnum.Relative;
         _panel.CoordinateYType = CoordinateTypeEnum.Relative;
-        _panel.TextAlign = TextAlignment.VLeftHTop;
-        _panel.FontSize = FontSize;
         _panel.LineWidth = 2;
         _panel.LineColor = BorderColor;
-        _panel.BackColor = ColorRef.FromRgb(18, 20, 24).WithOpacity(235);
-        _panel.ForeColor = ColorRef.FromRgb(18, 20, 24).WithOpacity(235);
-        _panel.Text = " ";
+        _panel.BackColor = ColorRef.FromRgb(18, 20, 24).WithOpacity(210);
         VAn.AddAnnotation(IndVars.FrontAnnList, _panel);
 
         _title = CreateText(true, FontSize);
@@ -170,28 +166,27 @@ public class TradeHoldTimer : Indicator
 
         const double panelWidth = 0.30;
         double panelHeight = 0.19 + VisibleRows * 0.034;
+        double right = left + panelWidth;
+        double bottom = top - panelHeight;
 
         _panel.X = left;
-        _panel.Y = top;
-        _panel.Width = panelWidth;
-        _panel.Height = panelHeight;
-        _panel.FontSize = FontSize;
+        _panel.X2 = right;
+        _panel.Y = top;       // top/high
+        _panel.Y2 = bottom;   // bottom/low
         _panel.LineColor = BorderColor;
         _panel.LineWidth = 2;
-        _panel.BackColor = ColorRef.FromRgb(18, 20, 24).WithOpacity(235);
-        _panel.ForeColor = ColorRef.FromRgb(18, 20, 24).WithOpacity(235);
-        _panel.Text = " ";
+        _panel.BackColor = ColorRef.FromRgb(18, 20, 24).WithOpacity(210);
 
         double textX = left + 0.012;
         const double rowSpacing = 0.034;
 
         _title.X = textX;
-        _title.Y = top + 0.014;
+        _title.Y = top - 0.014;
         _title.FontSize = FontSize;
         _title.Text = "TRADE HOLD TIMER";
 
         _columns.X = textX;
-        _columns.Y = top + 0.052;
+        _columns.Y = top - 0.052;
         _columns.FontSize = FontSize;
         _columns.Text = "SIDE      QTY      ELAPSED      STATUS";
 
@@ -200,14 +195,14 @@ public class TradeHoldTimer : Indicator
         if (isRt)
             UpdateTradeLots(net);
 
-        double rowStartY = top + 0.086;
+        double rowStartY = top - 0.086;
 
         int firstLot = Math.Max(0, _lots.Count - _rows.Count);
         for (int i = 0; i < _rows.Count; i++)
         {
             IAnnotation row = _rows[i];
             row.X = textX;
-            row.Y = rowStartY + i * rowSpacing;
+            row.Y = rowStartY - i * rowSpacing;
             row.FontSize = FontSize;
 
             int lotIndex = firstLot + i;
@@ -236,7 +231,7 @@ public class TradeHoldTimer : Indicator
         }
 
         _overallStatus.X = textX;
-        _overallStatus.Y = rowStartY + _rows.Count * rowSpacing + 0.006;
+        _overallStatus.Y = rowStartY - _rows.Count * rowSpacing - 0.006;
         _overallStatus.FontSize = FontSize;
 
         bool allSafeNow = false;
@@ -289,7 +284,7 @@ public class TradeHoldTimer : Indicator
         }
 
         _scrollInfo.X = textX;
-        _scrollInfo.Y = _overallStatus.Y + 0.031;
+        _scrollInfo.Y = _overallStatus.Y - 0.031;
         _scrollInfo.FontSize = Math.Max(8, FontSize - 2);
 
         if (_lots.Count > _rows.Count)
@@ -305,7 +300,7 @@ public class TradeHoldTimer : Indicator
         _scrollInfo.ForeColor = ColorRef.FromRgb(145, 150, 162);
 
         _footer.X = textX;
-        _footer.Y = _scrollInfo.Y + 0.030;
+        _footer.Y = _scrollInfo.Y - 0.030;
         _footer.FontSize = Math.Max(8, FontSize - 1);
         _footer.Text = $"Min {MinimumHoldSeconds}s · Safe {MinimumHoldSeconds + SafetyBufferSeconds}s";
         _footer.ForeColor = ColorRef.FromRgb(155, 160, 172);
@@ -433,27 +428,28 @@ public class TradeHoldTimer : Indicator
         const double panelWidth = 0.30;
         double panelHeight = 0.19 + VisibleRows * 0.034;
 
+        // Relative Y: 0 = bottom, 1 = top.
         switch (PanelPosition)
         {
             case TradeHoldPanelPosition.TopLeft:
                 left = marginX;
-                top = marginY;
+                top = 1.0 - marginY;
                 break;
 
             case TradeHoldPanelPosition.TopRight:
                 left = 1.0 - marginX - panelWidth;
-                top = marginY;
+                top = 1.0 - marginY;
                 break;
 
             case TradeHoldPanelPosition.BottomLeft:
                 left = marginX;
-                top = 1.0 - marginY - panelHeight;
+                top = marginY + panelHeight;
                 break;
 
             case TradeHoldPanelPosition.BottomRight:
             default:
                 left = 1.0 - marginX - panelWidth;
-                top = 1.0 - marginY - panelHeight;
+                top = marginY + panelHeight;
                 break;
         }
     }
