@@ -62,26 +62,30 @@ public class TradeHoldTimer : Indicator
     [VolCustom(CategoryIndex = 1, PropertyIndex = 1, IsAlert = true)]
     public DynamicList AlertName { get; set; } = new DynamicList();
 
+    [Category("Colors")]
+    [DisplayName("Border color")]
+    [VolCustom(CategoryIndex = 2, PropertyIndex = 0)]
+    public ColorRef BorderColor { get; set; } = ColorRef.FromRgb(255, 193, 7);
+
     [Category("Layout")]
     [DisplayName("Visible rows")]
     [Description("Maximum number of active entry timers shown. When there are more, the newest rows are displayed.")]
-    [VolCustom(CategoryIndex = 2, PropertyIndex = 0, MinValue = 1, MaxValue = 15, IncrementValue = 1)]
+    [VolCustom(CategoryIndex = 3, PropertyIndex = 0, MinValue = 1, MaxValue = 15, IncrementValue = 1)]
     public int VisibleRows { get; set; } = 5;
 
     [Category("Layout")]
     [DisplayName("Panel position")]
     [Description("Corner of the chart where the timer panel is anchored.")]
-    [VolCustom(CategoryIndex = 2, PropertyIndex = 1)]
+    [VolCustom(CategoryIndex = 3, PropertyIndex = 1)]
     public TradeHoldPanelPosition PanelPosition { get; set; } = TradeHoldPanelPosition.TopRight;
 
     [Category("Layout")]
     [DisplayName("Font size")]
-    [VolCustom(CategoryIndex = 2, PropertyIndex = 2, MinValue = 8, MaxValue = 24, IncrementValue = 1)]
+    [VolCustom(CategoryIndex = 3, PropertyIndex = 2, MinValue = 8, MaxValue = 24, IncrementValue = 1)]
     public int FontSize { get; set; } = 11;
 
     #endregion
 
-    private IAnnGroup _group;
     private IAnnotation _panel;
     private IAnnotation _title;
     private IAnnotation _columns;
@@ -110,16 +114,19 @@ public class TradeHoldTimer : Indicator
 
     public override void OnLoad()
     {
-        // Absolute-coordinate test that follows the official DeepCharts
-        // annotation example exactly: one group, one Rectangle, then Text items.
-        _group = VAn.CreateAnnGroup();
-        IndVars.Ann_List.AddGroup(_group);
-
+        // Fixed screen panel: same Relative + FrontAnnList pattern used by
+        // DeepCharts' official InfoLabel example.
         _panel = VAn.CreateAnnotation(AnnotationType.Rectangle);
+        _panel.CoordinateXType = CoordinateTypeEnum.Relative;
+        _panel.CoordinateYType = CoordinateTypeEnum.Relative;
+        _panel.X = 0.02;
+        _panel.X2 = 0.34;
+        _panel.Y = 0.05;
+        _panel.Y2 = 0.36;
         _panel.LineWidth = 2;
-        _panel.LineColor = ColorRef.FromRgb(125, 132, 146);
-        _panel.BackColor = ColorRef.FromRgb(125, 132, 146).WithOpacity(25);
-        VAn.AddAnnotation(_group, _panel);
+        _panel.LineColor = BorderColor;
+        _panel.BackColor = BorderColor.WithOpacity(25);
+        VAn.AddAnnotation(IndVars.FrontAnnList, _panel);
 
         _title = CreateText(true, FontSize);
         _columns = CreateText(true, FontSize);
@@ -143,11 +150,13 @@ public class TradeHoldTimer : Indicator
     private IAnnotation CreateText(bool bold, int fontSize)
     {
         var label = VAn.CreateAnnotation(AnnotationType.Text);
+        label.CoordinateXType = CoordinateTypeEnum.Relative;
+        label.CoordinateYType = CoordinateTypeEnum.Relative;
         label.TextAlign = TextAlignment.VLeftHTop;
         label.ForeColor = ColorRef.FromRgb(230, 230, 235);
         label.FontBold = bold;
         label.FontSize = fontSize;
-        VAn.AddAnnotation(_group, label);
+        VAn.AddAnnotation(IndVars.FrontAnnList, label);
         return label;
     }
 
@@ -156,44 +165,26 @@ public class TradeHoldTimer : Indicator
         if (_panel == null)
             return;
 
-        int lastIndex = VAn.LastIndex();
-        if (lastIndex < 0)
-            return;
+        // Keep the panel fixed in the lower-left chart area.
+        // Relative axes use the chart area range 0..1.
+        double left = 0.02;
+        double right = 0.34;
+        double bottom = 0.05;
+        double top = Math.Min(0.95, 0.16 + VisibleRows * 0.055);
 
-        int firstIndex = Math.Max(0, lastIndex - 18);
-        int rangeStart = Math.Max(0, lastIndex - 40);
-
-        double recentHigh = VAn.BarVars[rangeStart].High;
-        double recentLow = VAn.BarVars[rangeStart].Low;
-
-        for (int i = rangeStart + 1; i <= lastIndex; i++)
-        {
-            recentHigh = Math.Max(recentHigh, VAn.BarVars[i].High);
-            recentLow = Math.Min(recentLow, VAn.BarVars[i].Low);
-        }
-
-        double priceRange = recentHigh - recentLow;
-        if (priceRange <= 0)
-            priceRange = Math.Max(Math.Abs(recentHigh) * 0.001, 1.0);
-
-        double x1 = firstIndex + 0.5;
-        double x2 = lastIndex + 1.5;
-        double top = recentHigh + priceRange * 0.08;
-        double bottom = top - priceRange * 0.72;
-
-        _panel.X = x1;
-        _panel.X2 = x2;
-        _panel.Y = top;
-        _panel.Y2 = bottom;
-        _panel.LineColor = ColorRef.FromRgb(125, 132, 146);
-        _panel.BackColor = ColorRef.FromRgb(125, 132, 146).WithOpacity(25);
+        _panel.X = left;
+        _panel.X2 = right;
+        _panel.Y = bottom;
+        _panel.Y2 = top;
+        _panel.LineColor = BorderColor;
+        _panel.BackColor = BorderColor.WithOpacity(25);
         _panel.LineWidth = 2;
 
-        double textX = x1 + 0.5;
+        double textX = left + 0.012;
         double lineStep = (top - bottom) / Math.Max(VisibleRows + 5, 7);
 
-        _title.X = x1;
-        _title.Y = top;
+        _title.X = left + 0.012;
+        _title.Y = top - lineStep * 0.35;
         _title.FontSize = FontSize;
         _title.Text = "TRADE HOLD TIMER";
 
@@ -318,7 +309,7 @@ public class TradeHoldTimer : Indicator
         _footer.Text = $"Min {MinimumHoldSeconds}s · Safe {MinimumHoldSeconds + SafetyBufferSeconds}s";
         _footer.ForeColor = ColorRef.FromRgb(155, 160, 172);
 
-        _title.ForeColor = ColorRef.FromRgb(245, 245, 248);
+        _title.ForeColor = BorderColor;
         _columns.ForeColor = ColorRef.FromRgb(180, 185, 196);
     }
 
