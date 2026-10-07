@@ -57,7 +57,7 @@ public class TradeHoldTimer : Indicator
     [DisplayName("Vertical position")]
     [Description("Initial relative Y position of the panel on the chart.")]
     [VolCustom(CategoryIndex = 1, PropertyIndex = 2, MinValue = 0, MaxValue = 1, IncrementValue = 0.05, DecimalPosToShow = 2)]
-    public double VerticalPosition { get; set; } = 0.80;
+    public double VerticalPosition { get; set; } = 0.95;
 
     [Category("Layout")]
     [DisplayName("Font size")]
@@ -83,6 +83,7 @@ public class TradeHoldTimer : Indicator
         _statusLabel = VAn.CreateAnnotation(AnnotationType.Text);
         _statusLabel.CoordinateXType = CoordinateTypeEnum.Relative;
         _statusLabel.CoordinateYType = CoordinateTypeEnum.Relative;
+        _statusLabel.TextAlign = TextAlignment.VLeftHTop;
 
         VAn.AddAnnotation(IndVars.FrontAnnList, _statusLabel);
 
