@@ -48,16 +48,16 @@ public class TradeHoldTimer : Indicator
     public int VisibleRows { get; set; } = 5;
 
     [Category("Layout")]
-    [DisplayName("Horizontal position")]
-    [Description("Initial relative X position of the panel on the chart.")]
-    [VolCustom(CategoryIndex = 1, PropertyIndex = 1, MinValue = 0, MaxValue = 1, IncrementValue = 0.05, DecimalPosToShow = 2)]
-    public double HorizontalPosition { get; set; } = 0.02;
+    [DisplayName("X offset (px)")]
+    [Description("Panel distance in pixels from the left edge of the chart.")]
+    [VolCustom(CategoryIndex = 1, PropertyIndex = 1, MinValue = 0, MaxValue = 3000, IncrementValue = 1)]
+    public int XOffsetPx { get; set; } = 12;
 
     [Category("Layout")]
-    [DisplayName("Vertical position")]
-    [Description("Initial relative Y position of the panel on the chart.")]
-    [VolCustom(CategoryIndex = 1, PropertyIndex = 2, MinValue = 0, MaxValue = 1, IncrementValue = 0.05, DecimalPosToShow = 2)]
-    public double VerticalPosition { get; set; } = 0.02;
+    [DisplayName("Y offset (px)")]
+    [Description("Panel distance in pixels from the top edge of the chart.")]
+    [VolCustom(CategoryIndex = 1, PropertyIndex = 2, MinValue = 0, MaxValue = 2000, IncrementValue = 1)]
+    public int YOffsetPx { get; set; } = 12;
 
     [Category("Layout")]
     [DisplayName("Font size")]
@@ -81,8 +81,10 @@ public class TradeHoldTimer : Indicator
     public override void OnLoad()
     {
         _statusLabel = VAn.CreateAnnotation(AnnotationType.Text);
-        _statusLabel.CoordinateXType = CoordinateTypeEnum.Relative;
-        _statusLabel.CoordinateYType = CoordinateTypeEnum.Relative;
+        _statusLabel.CoordinateXType = CoordinateTypeEnum.Pixel;
+        _statusLabel.CoordinateYType = CoordinateTypeEnum.Pixel;
+        _statusLabel.TextAlign = TextAlignment.VLeftHTop;
+        _statusLabel.LabelAlign = LabelAlignEnum.Left;
 
         VAn.AddAnnotation(IndVars.FrontAnnList, _statusLabel);
 
@@ -97,13 +99,8 @@ public class TradeHoldTimer : Indicator
 
         // Apply these on every calculation so layout settings immediately
         // affect the existing annotation.
-        _statusLabel.X = HorizontalPosition;
-        _statusLabel.Y = VerticalPosition;
-        _statusLabel.TextAlign = GetTextAlignment(HorizontalPosition, VerticalPosition);
-        _statusLabel.LabelAlign = GetLabelAlignment(HorizontalPosition);
-        _statusLabel.TextOnlyInside = true;
-        _statusLabel.needToShowAllText = true;
-        _statusLabel.CheckStringWidthInside = true;
+        _statusLabel.X = XOffsetPx;
+        _statusLabel.Y = YOffsetPx;
         _statusLabel.FontSize = FontSize;
         _statusLabel.FontBold = true;
         _statusLabel.ForeColor = ColorRef.FromRgb(230, 230, 230);
@@ -113,30 +110,4 @@ public class TradeHoldTimer : Indicator
             $"Min {MinimumHoldSeconds}s · Safe {MinimumHoldSeconds + SafetyBufferSeconds}s · Rows {VisibleRows}";
     }
 
-    private static LabelAlignEnum GetLabelAlignment(double x)
-    {
-        if (x <= 0.33) return LabelAlignEnum.Left;
-        if (x >= 0.67) return LabelAlignEnum.Right;
-        return LabelAlignEnum.Center;
-    }
-
-    private static TextAlignment GetTextAlignment(double x, double y)
-    {
-        bool left = x <= 0.33;
-        bool right = x >= 0.67;
-        bool top = y <= 0.33;
-        bool bottom = y >= 0.67;
-
-        if (left && top) return TextAlignment.VLeftHTop;
-        if (left && bottom) return TextAlignment.VLeftHBottom;
-        if (right && top) return TextAlignment.VRightHTop;
-        if (right && bottom) return TextAlignment.VRightHBottom;
-
-        if (left) return TextAlignment.VLeftHCenter;
-        if (right) return TextAlignment.VRightHCenter;
-        if (top) return TextAlignment.VCenterHTop;
-        if (bottom) return TextAlignment.VCenterHBottom;
-
-        return TextAlignment.VCenterHCenter;
-    }
 }
