@@ -114,18 +114,19 @@ public class TradeHoldTimer : Indicator
 
     public override void OnLoad()
     {
-        // Fixed screen panel: same Relative + FrontAnnList pattern used by
-        // DeepCharts' official InfoLabel example.
-        _panel = VAn.CreateAnnotation(AnnotationType.Rectangle);
+        // DeepCharts reliably renders background + border on Text annotations
+        // in this desktop build. Use one multiline Text annotation as the single
+        // visual panel container, then draw all real labels over it.
+        _panel = VAn.CreateAnnotation(AnnotationType.Text);
         _panel.CoordinateXType = CoordinateTypeEnum.Relative;
         _panel.CoordinateYType = CoordinateTypeEnum.Relative;
-        _panel.X = 0.02;
-        _panel.X2 = 0.34;
-        _panel.Y = 0.05;
-        _panel.Y2 = 0.36;
+        _panel.TextAlign = TextAlignment.VLeftHTop;
+        _panel.FontSize = FontSize;
         _panel.LineWidth = 2;
         _panel.LineColor = BorderColor;
-        _panel.BackColor = BorderColor.WithOpacity(25);
+        _panel.BackColor = ColorRef.FromRgb(18, 20, 24).WithOpacity(235);
+        _panel.ForeColor = ColorRef.FromRgb(18, 20, 24).WithOpacity(235);
+        _panel.Text = BuildPanelBackground(VisibleRows);
         VAn.AddAnnotation(IndVars.FrontAnnList, _panel);
 
         _title = CreateText(true, FontSize);
@@ -165,31 +166,27 @@ public class TradeHoldTimer : Indicator
         if (_panel == null)
             return;
 
-        // Keep the panel fixed in the lower-left chart area.
-        // Relative axes use the chart area range 0..1.
-        double left = 0.02;
-        double right = 0.34;
-        double bottom = 0.05;
-        double top = Math.Min(0.95, 0.16 + VisibleRows * 0.055);
+        GetPanelAnchor(out double left, out double top);
 
         _panel.X = left;
-        _panel.X2 = right;
-        _panel.Y = bottom;
-        _panel.Y2 = top;
+        _panel.Y = top;
+        _panel.FontSize = FontSize;
         _panel.LineColor = BorderColor;
-        _panel.BackColor = BorderColor.WithOpacity(25);
         _panel.LineWidth = 2;
+        _panel.BackColor = ColorRef.FromRgb(18, 20, 24).WithOpacity(235);
+        _panel.ForeColor = ColorRef.FromRgb(18, 20, 24).WithOpacity(235);
+        _panel.Text = BuildPanelBackground(VisibleRows);
 
         double textX = left + 0.012;
-        double lineStep = (top - bottom) / Math.Max(VisibleRows + 5, 7);
+        const double rowSpacing = 0.034;
 
-        _title.X = left + 0.012;
-        _title.Y = top - lineStep * 0.35;
+        _title.X = textX;
+        _title.Y = top + 0.014;
         _title.FontSize = FontSize;
         _title.Text = "TRADE HOLD TIMER";
 
         _columns.X = textX;
-        _columns.Y = top - lineStep;
+        _columns.Y = top + 0.052;
         _columns.FontSize = FontSize;
         _columns.Text = "SIDE      QTY      ELAPSED      STATUS";
 
@@ -198,15 +195,14 @@ public class TradeHoldTimer : Indicator
         if (isRt)
             UpdateTradeLots(net);
 
-        double rowStartY = top - lineStep * 2.0;
-        double rowSpacing = lineStep;
+        double rowStartY = top + 0.086;
 
         int firstLot = Math.Max(0, _lots.Count - _rows.Count);
         for (int i = 0; i < _rows.Count; i++)
         {
             IAnnotation row = _rows[i];
             row.X = textX;
-            row.Y = rowStartY - i * rowSpacing;
+            row.Y = rowStartY + i * rowSpacing;
             row.FontSize = FontSize;
 
             int lotIndex = firstLot + i;
@@ -235,7 +231,7 @@ public class TradeHoldTimer : Indicator
         }
 
         _overallStatus.X = textX;
-        _overallStatus.Y = rowStartY - _rows.Count * rowSpacing;
+        _overallStatus.Y = rowStartY + _rows.Count * rowSpacing + 0.006;
         _overallStatus.FontSize = FontSize;
 
         bool allSafeNow = false;
@@ -288,7 +284,7 @@ public class TradeHoldTimer : Indicator
         }
 
         _scrollInfo.X = textX;
-        _scrollInfo.Y = _overallStatus.Y - lineStep;
+        _scrollInfo.Y = _overallStatus.Y + 0.031;
         _scrollInfo.FontSize = Math.Max(8, FontSize - 2);
 
         if (_lots.Count > _rows.Count)
@@ -304,12 +300,12 @@ public class TradeHoldTimer : Indicator
         _scrollInfo.ForeColor = ColorRef.FromRgb(145, 150, 162);
 
         _footer.X = textX;
-        _footer.Y = _scrollInfo.Y - lineStep;
+        _footer.Y = _scrollInfo.Y + 0.030;
         _footer.FontSize = Math.Max(8, FontSize - 1);
         _footer.Text = $"Min {MinimumHoldSeconds}s · Safe {MinimumHoldSeconds + SafetyBufferSeconds}s";
         _footer.ForeColor = ColorRef.FromRgb(155, 160, 172);
 
-        _title.ForeColor = BorderColor;
+        _title.ForeColor = ColorRef.FromRgb(245, 245, 248);
         _columns.ForeColor = ColorRef.FromRgb(180, 185, 196);
     }
 
@@ -423,6 +419,47 @@ public class TradeHoldTimer : Indicator
 
         color = IMethodAPI.GetColorRefForTheme(ColorReferenceEnum.Up, ColorTypeEnum.Text);
         return "SAFE";
+    }
+
+    private static string BuildPanelBackground(int visibleRows)
+    {
+        // A non-empty text block is required for Text BackColor/LineColor to
+        // produce a visible rectangular surface. Non-breaking spaces preserve width.
+        int lineCount = visibleRows + 5;
+        string line = new string('\u00A0', 44);
+        return string.Join("\n", Enumerable.Repeat(line, lineCount));
+    }
+
+    private void GetPanelAnchor(out double left, out double top)
+    {
+        const double marginX = 0.015;
+        const double marginY = 0.025;
+        const double panelWidth = 0.30;
+        double panelHeight = 0.19 + VisibleRows * 0.034;
+
+        switch (PanelPosition)
+        {
+            case TradeHoldPanelPosition.TopLeft:
+                left = marginX;
+                top = marginY;
+                break;
+
+            case TradeHoldPanelPosition.TopRight:
+                left = 1.0 - marginX - panelWidth;
+                top = marginY;
+                break;
+
+            case TradeHoldPanelPosition.BottomLeft:
+                left = marginX;
+                top = 1.0 - marginY - panelHeight;
+                break;
+
+            case TradeHoldPanelPosition.BottomRight:
+            default:
+                left = 1.0 - marginX - panelWidth;
+                top = 1.0 - marginY - panelHeight;
+                break;
+        }
     }
 
     private static string FormatElapsed(TimeSpan elapsed)
